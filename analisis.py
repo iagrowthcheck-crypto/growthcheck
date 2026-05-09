@@ -5,8 +5,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-client = anthropic.Anthropic(api_key=api_key)
+raw_key = os.environ.get("ANTHROPIC_API_KEY", "")
+clean_key = raw_key.replace("\n", "").replace("\r", "").strip()
+client = anthropic.Anthropic(api_key=clean_key)
 
 def analizar_resenas(nombre_negocio: str, resenas: list):
     texto_resenas = ""
