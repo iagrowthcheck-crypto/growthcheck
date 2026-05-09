@@ -19,14 +19,14 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"mensaje": "Growth Check está funcionando"}
+    return {"mensaje": "Growth Check esta funcionando"}
 
 @app.get("/negocio/{nombre}")
 def get_negocio(nombre: str):
     return buscar_negocio(nombre)
 
-@app.get("/reseñas/{place_id}")
-def get_reseñas(place_id: str):
+@app.get("/resenas/{place_id}")
+def get_resenas(place_id: str):
     return obtener_reseñas(place_id)
 
 @app.get("/analisis/{nombre}")
@@ -34,8 +34,13 @@ def get_analisis(nombre: str):
     negocio = buscar_negocio(nombre)
     if "error" in negocio:
         return negocio
-    reseñas = obtener_reseñas(negocio["place_id"])
-    analisis = analizar_reseñas(nombre, reseñas["reseñas"])
-    return {
-        "negocio": negocio,
-        "analisis": anal
+    resenas = obtener_reseñas(negocio["place_id"])
+    analisis = analizar_reseñas(nombre, resenas["reseñas"])
+    return {"negocio": negocio, "analisis": analisis}
+
+@app.get("/facebook/{page_id}")
+def get_facebook(page_id: str, token: str):
+    datos = obtener_datos_pagina(page_id, token)
+    posts = obtener_posts_pagina(page_id, token)
+    comentarios = obtener_comentarios_recientes(page_id, token)
+    return {"pagina": datos, "posts_recientes": posts, "comentarios_recientes": comentarios}
