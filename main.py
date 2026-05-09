@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from maps import buscar_negocio, obtener_reseñas
-from analisis import analizar_reseñas
+from maps import buscar_negocio, obtener_resenas
+from analisis import analizar_resenas
 from meta import obtener_datos_pagina, obtener_posts_pagina, obtener_comentarios_recientes
 
 load_dotenv()
@@ -19,23 +19,19 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"mensaje": "Growth Check esta funcionando"}
+    return {"mensaje": "Growth Check funcionando"}
 
 @app.get("/negocio/{nombre}")
 def get_negocio(nombre: str):
     return buscar_negocio(nombre)
-
-@app.get("/resenas/{place_id}")
-def get_resenas(place_id: str):
-    return obtener_reseñas(place_id)
 
 @app.get("/analisis/{nombre}")
 def get_analisis(nombre: str):
     negocio = buscar_negocio(nombre)
     if "error" in negocio:
         return negocio
-    resenas = obtener_reseñas(negocio["place_id"])
-    analisis = analizar_reseñas(nombre, resenas["reseñas"])
+    resenas = obtener_resenas(negocio["place_id"])
+    analisis = analizar_resenas(nombre, resenas["resenas"])
     return {"negocio": negocio, "analisis": analisis}
 
 @app.get("/facebook/{page_id}")

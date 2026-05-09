@@ -16,19 +16,18 @@ def buscar_negocio(nombre: str, ubicacion: str = "El Salvador"):
     }
     response = requests.get(url, params=params)
     data = response.json()
-    
     if data["candidates"]:
         lugar = data["candidates"][0]
         return {
             "nombre": lugar.get("name"),
             "direccion": lugar.get("formatted_address"),
             "rating": lugar.get("rating"),
-            "total_reseñas": lugar.get("user_ratings_total"),
+            "total_resenas": lugar.get("user_ratings_total"),
             "place_id": lugar.get("place_id")
         }
     return {"error": "Negocio no encontrado"}
 
-def obtener_reseñas(place_id: str):
+def obtener_resenas(place_id: str):
     url = "https://maps.googleapis.com/maps/api/place/details/json"
     params = {
         "place_id": place_id,
@@ -38,19 +37,17 @@ def obtener_reseñas(place_id: str):
     }
     response = requests.get(url, params=params)
     data = response.json()
-    
     result = data.get("result", {})
-    reseñas = result.get("reviews", [])
-    
+    resenas = result.get("reviews", [])
     return {
         "rating_actual": result.get("rating"),
-        "reseñas": [
+        "resenas": [
             {
                 "autor": r.get("author_name"),
                 "calificacion": r.get("rating"),
                 "texto": r.get("text"),
                 "fecha": r.get("relative_time_description")
             }
-            for r in reseñas
+            for r in resenas
         ]
     }
