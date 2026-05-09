@@ -11,8 +11,8 @@ app = FastAPI(title="Growth Check API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://growthcheck-dashboard.vercel.app"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -38,16 +38,4 @@ def get_analisis(nombre: str):
     analisis = analizar_reseñas(nombre, reseñas["reseñas"])
     return {
         "negocio": negocio,
-        "analisis": analisis
-    }
-
-@app.get("/facebook/{page_id}")
-def get_facebook(page_id: str, token: str):
-    datos = obtener_datos_pagina(page_id, token)
-    posts = obtener_posts_pagina(page_id, token)
-    comentarios = obtener_comentarios_recientes(page_id, token)
-    return {
-        "pagina": datos,
-        "posts_recientes": posts,
-        "comentarios_recientes": comentarios
-    }
+        "analisis": anal
