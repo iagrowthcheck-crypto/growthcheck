@@ -37,3 +37,4 @@ def get_ssl(dominio: str):
 @app.get("/velocidad")
 def get_velocidad(url: str):
     return verificar_velocidad(url)
+ 
