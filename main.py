@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from maps import buscar_negocio, obtener_resenas
 from analisis import analizar_resenas
+from infraestructura import verificar_dominio, verificar_ssl, verificar_velocidad
 
 load_dotenv()
 app = FastAPI()
@@ -24,3 +25,15 @@ def get_analisis(nombre: str):
     resenas = obtener_resenas(negocio["place_id"])
     analisis = analizar_resenas(nombre, resenas["resenas"])
     return {"negocio": negocio, "analisis": analisis}
+
+@app.get("/dominio/{dominio}")
+def get_dominio(dominio: str):
+    return verificar_dominio(dominio)
+
+@app.get("/ssl/{dominio}")
+def get_ssl(dominio: str):
+    return verificar_ssl(dominio)
+
+@app.get("/velocidad")
+def get_velocidad(url: str):
+    return verificar_velocidad(url)
