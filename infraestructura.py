@@ -1,4 +1,4 @@
-import whois
+import pythonwhois as whois
 import ssl
 import socket
 import requests
