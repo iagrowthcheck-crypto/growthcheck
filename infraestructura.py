@@ -11,14 +11,16 @@ def verificar_dominio(dominio: str):
         expiracion = w.expiration_date
         if isinstance(expiracion, list):
             expiracion = expiracion[0]
+        dias_restantes = None
         if expiracion:
-            ahora = datetime.now(timezone.utc) if expiracion.tzinfo else datetime.utcnow()
-            dias_restantes = (expiracion - ahora).days
-        else:
-            dias_restantes = None
+            try:
+                exp_utc = expiracion.replace(tzinfo=None)
+                dias_restantes = (exp_utc - datetime.utcnow()).days
+            except:
+                dias_restantes = None
         return {
             "dominio": dominio,
-            "registrador": w.registrar,
+            "registrador": str(w.registrar),
             "expiracion": str(expiracion),
             "dias_restantes": dias_restantes,
             "alerta": dias_restantes < 30 if dias_restantes else False
@@ -65,4 +67,3 @@ def verificar_velocidad(url: str):
         }
     except Exception as e:
         return {"error": str(e)}
-    # fix 
