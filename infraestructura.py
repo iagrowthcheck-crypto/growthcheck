@@ -5,13 +5,22 @@ import requests
 import os
 from datetime import datetime
 
+
 def verificar_dominio(dominio: str):
     try:
         w = whois.whois(dominio)
         expiracion = w.expiration_date
         if isinstance(expiracion, list):
             expiracion = expiracion[0]
-        dias_restantes = (expiracion - datetime.now()).days if expiracion else None
+        if expiracion:
+            if expiracion.tzinfo is not None:
+                from datetime import timezone
+                ahora = datetime.now(timezone.utc)
+            else:
+                ahora = datetime.utcnow()
+            dias_restantes = (expiracion - ahora).days
+        else:
+            dias_restantes = None
         return {
             "dominio": dominio,
             "registrador": w.registrar,
@@ -21,25 +30,6 @@ def verificar_dominio(dominio: str):
         }
     except Exception as e:
         return {"error": str(e)}
-
-def verificar_ssl(dominio: str):
-    try:
-        ctx = ssl.create_default_context()
-        s = ctx.wrap_socket(socket.socket(), server_hostname=dominio)
-        s.settimeout(5)
-        s.connect((dominio, 443))
-        cert = s.getpeercert()
-        s.close()
-        expiracion = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
-        dias_restantes = (expiracion - datetime.utcnow()).days
-        return {
-            "ssl_valido": True,
-            "expiracion": str(expiracion),
-            "dias_restantes": dias_restantes,
-            "alerta": dias_restantes < 30
-        }
-    except Exception as e:
-        return {"ssl_valido": False, "error": str(e)}
 
 def verificar_velocidad(url: str):
     try:
