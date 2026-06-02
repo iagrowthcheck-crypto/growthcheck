@@ -8,22 +8,25 @@ from datetime import datetime, timezone
 def verificar_dominio(dominio: str):
     try:
         w = whois.whois(dominio)
-        expiracion = w.expiration_date
-        if isinstance(expiracion, list):
-            expiracion = expiracion[0]
+        expiracion_raw = w.expiration_date
+        if isinstance(expiracion_raw, list):
+            expiracion_raw = expiracion_raw[0]
+        
+        expiracion_str = str(expiracion_raw)
         dias_restantes = None
-        if expiracion:
-            try:
-                import calendar
-                exp_ts = calendar.timegm(expiracion.timetuple())
-                now_ts = calendar.timegm(datetime.utcnow().timetuple())
-                dias_restantes = (exp_ts - now_ts) // 86400
-            except Exception:
-                dias_restantes = None
+        
+        try:
+            import calendar
+            exp_ts = calendar.timegm(expiracion_raw.timetuple())
+            now_ts = calendar.timegm(datetime.utcnow().timetuple())
+            dias_restantes = (exp_ts - now_ts) // 86400
+        except:
+            pass
+        
         return {
             "dominio": dominio,
             "registrador": str(w.registrar),
-            "expiracion": str(expiracion),
+            "expiracion": expiracion_str,
             "dias_restantes": dias_restantes,
             "alerta": dias_restantes is not None and dias_restantes < 30
         }
