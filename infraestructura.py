@@ -14,29 +14,6 @@ def verificar_dominio(dominio: str):
         dias_restantes = None
         if expiracion:
             try:
-                exp_utc = expiracion.replace(tzinfo=None)
-                dias_restantes = (exp_utc - datetime.utcnow()).days
-            except:
-                dias_restantes = None
-        return {
-            "dominio": dominio,
-            "registrador": str(w.registrar),
-            "expiracion": str(expiracion),
-            "dias_restantes": dias_restantes,
-            "alerta": dias_restantes < 30 if dias_restantes else False
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-def verificar_dominio(dominio: str):
-    try:
-        w = whois.whois(dominio)
-        expiracion = w.expiration_date
-        if isinstance(expiracion, list):
-            expiracion = expiracion[0]
-        dias_restantes = None
-        if expiracion:
-            try:
                 import calendar
                 exp_ts = calendar.timegm(expiracion.timetuple())
                 now_ts = calendar.timegm(datetime.utcnow().timetuple())
