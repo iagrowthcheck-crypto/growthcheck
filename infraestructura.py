@@ -31,7 +31,7 @@ def verificar_ssl(dominio: str):
         cert = s.getpeercert()
         s.close()
         expiracion = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
-        dias_restantes = (expiracion - datetime.now()).days
+        dias_restantes = (expiracion - datetime.utcnow()).days
         return {
             "ssl_valido": True,
             "expiracion": str(expiracion),
