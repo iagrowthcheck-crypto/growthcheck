@@ -1,31 +1,47 @@
-import pythonwhois as whois
 import ssl
 import socket
 import requests
 import os
-from datetime import datetime, timezone
+import subprocess
+from datetime import datetime
 
 def verificar_dominio(dominio: str):
     try:
-        import subprocess
         result = subprocess.run(['whois', dominio], capture_output=True, text=True, timeout=10)
         output = result.stdout
         expiracion_str = "No encontrada"
-        dias_restantes = None
         for line in output.split('\n'):
-            if 'expir' in line.lower() or 'Expir' in line:
+            if 'expir' in line.lower():
                 expiracion_str = line.strip()
                 break
         return {
             "dominio": dominio,
             "expiracion": expiracion_str,
-            "dias_restantes": dias_restantes,
-            "alerta": False,
-            "info_completa": output[:500]
+            "dias_restantes": None,
+            "alerta": False
         }
     except Exception as e:
-        return {"error": str(e)}
-    
+        return {"error": "dominio: " + str(e)}
+
+def verificar_ssl(dominio: str):
+    try:
+        ctx = ssl.create_default_context()
+        s = ctx.wrap_socket(socket.socket(), server_hostname=dominio)
+        s.settimeout(5)
+        s.connect((dominio, 443))
+        cert = s.getpeercert()
+        s.close()
+        expiracion = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+        dias_restantes = (expiracion - datetime.utcnow()).days
+        return {
+            "ssl_valido": True,
+            "expiracion": str(expiracion),
+            "dias_restantes": dias_restantes,
+            "alerta": dias_restantes < 30
+        }
+    except Exception as e:
+        return {"ssl_valido": False, "error": "ssl: " + str(e)}
+
 def verificar_velocidad(url: str):
     try:
         api_key = os.getenv("GOOGLE_MAPS_API_KEY")
@@ -45,4 +61,4 @@ def verificar_velocidad(url: str):
             "alerta": perf < 0.5
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": "velocidad: " + str(e)}
