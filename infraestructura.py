@@ -37,11 +37,12 @@ def verificar_dominio(dominio: str):
         dias_restantes = None
         if expiracion:
             try:
-                now = datetime.now()
-                exp = expiracion.replace(tzinfo=None) if expiracion.tzinfo else expiracion
-                dias_restantes = (exp - now).days
+                import calendar
+                exp_ts = calendar.timegm(expiracion.timetuple())
+                now_ts = calendar.timegm(datetime.utcnow().timetuple())
+                dias_restantes = (exp_ts - now_ts) // 86400
             except Exception:
-                dias_restantes = 999
+                dias_restantes = None
         return {
             "dominio": dominio,
             "registrador": str(w.registrar),
