@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from maps import buscar_negocio, obtener_resenas
 from analisis import analizar_resenas
-from infraestructura import verificar_dominio, verificar_ssl, verificar_velocidad
+from infra import verificar_dominio, verificar_ssl, verificar_velocidad
 
 load_dotenv()
 app = FastAPI()
