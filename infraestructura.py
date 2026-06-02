@@ -65,3 +65,4 @@ def verificar_velocidad(url: str):
         }
     except Exception as e:
         return {"error": str(e)}
+    # fix 
