@@ -2,37 +2,14 @@ import ssl
 import socket
 import requests
 import os
-import subprocess
 from datetime import datetime
 
 def verificar_dominio(dominio: str):
     try:
-        result = subprocess.run(
-            ['whois', dominio], 
-            capture_output=True, 
-            text=True, 
+        res = requests.get(
+            f"https://api.whoisfreaks.com/v1.0/whois?apiKey=free&whois=live&domainName={dominio}",
             timeout=10
         )
-        output = result.stdout
-        expiracion_str = "No encontrada"
-        for line in output.split('\n'):
-            line_lower = line.lower()
-            if 'expir' in line_lower and ':' in line:
-                expiracion_str = line.strip()
-                break
-        return {
-            "dominio": dominio,
-            "expiracion": expiracion_str,
-            "dias_restantes": None,
-            "alerta": False,
-            "raw": output[:300]
-        }
-    except Exception as e:
-        return {"error": "dominio_error: " + str(e)}
-
-def verificar_dominio(dominio: str):
-    try:
-        res = requests.get(f"https://api.whoisfreaks.com/v1.0/whois?apiKey=free&whois=live&domainName={dominio}", timeout=10)
         data = res.json()
         expiracion = data.get("expiry_date", "No encontrada")
         return {
@@ -44,6 +21,25 @@ def verificar_dominio(dominio: str):
         }
     except Exception as e:
         return {"error": "dominio_error: " + str(e)}
+
+def verificar_ssl(dominio: str):
+    try:
+        ctx = ssl.create_default_context()
+        s = ctx.wrap_socket(socket.socket(), server_hostname=dominio)
+        s.settimeout(5)
+        s.connect((dominio, 443))
+        cert = s.getpeercert()
+        s.close()
+        expiracion = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+        dias_restantes = (expiracion - datetime.utcnow()).days
+        return {
+            "ssl_valido": True,
+            "expiracion": str(expiracion),
+            "dias_restantes": dias_restantes,
+            "alerta": dias_restantes < 30
+        }
+    except Exception as e:
+        return {"ssl_valido": False, "error": "ssl_error: " + str(e)}
 
 def verificar_velocidad(url: str):
     try:
