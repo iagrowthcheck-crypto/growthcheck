@@ -7,21 +7,28 @@ from datetime import datetime
 
 def verificar_dominio(dominio: str):
     try:
-        result = subprocess.run(['whois', dominio], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            ['whois', dominio], 
+            capture_output=True, 
+            text=True, 
+            timeout=10
+        )
         output = result.stdout
         expiracion_str = "No encontrada"
         for line in output.split('\n'):
-            if 'expir' in line.lower():
+            line_lower = line.lower()
+            if 'expir' in line_lower and ':' in line:
                 expiracion_str = line.strip()
                 break
         return {
             "dominio": dominio,
             "expiracion": expiracion_str,
             "dias_restantes": None,
-            "alerta": False
+            "alerta": False,
+            "raw": output[:300]
         }
     except Exception as e:
-        return {"error": "dominio: " + str(e)}
+        return {"error": "dominio_error: " + str(e)}
 
 def verificar_ssl(dominio: str):
     try:
@@ -40,7 +47,7 @@ def verificar_ssl(dominio: str):
             "alerta": dias_restantes < 30
         }
     except Exception as e:
-        return {"ssl_valido": False, "error": "ssl: " + str(e)}
+        return {"ssl_valido": False, "error": "ssl_error: " + str(e)}
 
 def verificar_velocidad(url: str):
     try:
@@ -61,4 +68,4 @@ def verificar_velocidad(url: str):
             "alerta": perf < 0.5
         }
     except Exception as e:
-        return {"error": "velocidad: " + str(e)}
+        return {"error": "velocidad_error: " + str(e)}
