@@ -50,4 +50,4 @@ def test_db():
         result = supabase.table("analisis").select("count").execute()
         return {"db_ok": True, "data": result.data}
     except Exception as e:
-        return {"db_ok": False, "error": str(e)}
+        return {"db_ok": False, "error": str(e)}# v2 
