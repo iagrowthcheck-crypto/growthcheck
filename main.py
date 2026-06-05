@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from maps import buscar_negocio, obtener_resenas
 from analisis import analizar_resenas
 from infra import verificar_dominio, verificar_ssl, verificar_velocidad
+from database import guardar_analisis, obtener_historial
 
 load_dotenv()
 app = FastAPI()
@@ -24,7 +25,12 @@ def get_analisis(nombre: str):
         return negocio
     resenas = obtener_resenas(negocio["place_id"])
     analisis = analizar_resenas(nombre, resenas["resenas"])
+    guardar_analisis(nombre, negocio, analisis)
     return {"negocio": negocio, "analisis": analisis}
+
+@app.get("/historial/{nombre}")
+def get_historial(nombre: str):
+    return obtener_historial(nombre)
 
 @app.get("/dominio/{dominio}")
 def get_dominio(dominio: str):
@@ -37,4 +43,3 @@ def get_ssl(dominio: str):
 @app.get("/velocidad")
 def get_velocidad(url: str):
     return verificar_velocidad(url)
- 
