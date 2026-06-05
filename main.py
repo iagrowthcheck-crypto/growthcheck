@@ -32,6 +32,15 @@ def get_analisis(nombre: str):
 def get_historial(nombre: str):
     return obtener_historial(nombre)
 
+@app.get("/test-db")
+def test_db():
+    from database import supabase
+    try:
+        result = supabase.table("analisis").select("*").limit(1).execute()
+        return {"db_ok": True, "conectado": True}
+    except Exception as e:
+        return {"db_ok": False, "error": str(e)}
+
 @app.get("/dominio/{dominio}")
 def get_dominio(dominio: str):
     return verificar_dominio(dominio)
@@ -43,11 +52,3 @@ def get_ssl(dominio: str):
 @app.get("/velocidad")
 def get_velocidad(url: str):
     return verificar_velocidad(url)
-@app.get("/test-db")
-def test_db():
-    from database import supabase
-    try:
-        result = supabase.table("analisis").select("count").execute()
-        return {"db_ok": True, "data": result.data}
-    except Exception as e:
-        return {"db_ok": False, "error": str(e)}# v2 
