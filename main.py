@@ -43,3 +43,11 @@ def get_ssl(dominio: str):
 @app.get("/velocidad")
 def get_velocidad(url: str):
     return verificar_velocidad(url)
+@app.get("/test-db")
+def test_db():
+    from database import supabase
+    try:
+        result = supabase.table("analisis").select("count").execute()
+        return {"db_ok": True, "data": result.data}
+    except Exception as e:
+        return {"db_ok": False, "error": str(e)}
