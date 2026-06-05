@@ -43,7 +43,7 @@ def verificar_ssl(dominio: str):
 
 def verificar_velocidad(url: str):
     try:
-        api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+        api_key = os.getenv("PAGESPEED_API_KEY")
         endpoint = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
         params = {"url": url, "key": api_key, "strategy": "mobile"}
         res = requests.get(endpoint, params=params)
