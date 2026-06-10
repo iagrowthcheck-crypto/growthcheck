@@ -1,11 +1,15 @@
 import os
 import psycopg2
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
 
 def get_conn():
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
+    db_url = os.getenv("DATABASE_URL", "")
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    return psycopg2.connect(db_url, sslmode="require")
 
 def crear_tabla():
     try:
@@ -39,7 +43,6 @@ crear_tabla()
 
 def guardar_analisis(negocio: str, datos_negocio: dict, datos_analisis: dict):
     try:
-        import json
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("""
