@@ -5,8 +5,16 @@ from maps import buscar_negocio, obtener_resenas
 from analisis import analizar_resenas
 from infra import verificar_dominio, verificar_ssl, verificar_velocidad
 from database import guardar_analisis, obtener_historial
+import anthropic
+import os
+import json
 
 load_dotenv()
+
+raw_key = os.environ.get("ANTHROPIC_API_KEY", "")
+clean_key = raw_key.replace("\n", "").replace("\r", "").strip()
+client = anthropic.Anthropic(api_key=clean_key)
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
@@ -98,5 +106,49 @@ def get_score(nombre: str):
                 "alerta_critica_reputacion": analisis.get("alerta_critica", False)
             }
         }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/consultor")
+def consultor_virtual(data: dict):
+    try:
+        problema = data.get("problema", "")
+        negocio = data.get("negocio", "mi negocio")
+        mensaje = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=1500,
+            messages=[{
+                "role": "user",
+                "content": f"""Eres un consultor experto en operaciones y reputacion empresarial para negocios en El Salvador.
+
+El dueno de {negocio} tiene este problema:
+"{problema}"
+
+Responde UNICAMENTE con JSON valido:
+{{
+  "diagnostico": "que esta pasando realmente en 2-3 lineas",
+  "causa_probable": "por que esta pasando esto",
+  "acciones": [
+    "accion concreta 1 para esta semana",
+    "accion concreta 2",
+    "accion concreta 3"
+  ],
+  "checklist": [
+    "verificar que...",
+    "confirmar que...",
+    "revisar que...",
+    "asegurar que..."
+  ],
+  "tiempo_estimado": "cuanto tiempo toma resolver esto",
+  "prioridad": "alta/media/baja"
+}}"""
+            }]
+        )
+        resultado = mensaje.content[0].text.strip()
+        if resultado.startswith("```"):
+            resultado = resultado.split("```")[1]
+            if resultado.startswith("json"):
+                resultado = resultado[4:]
+        return json.loads(resultado.strip())
     except Exception as e:
         return {"error": str(e)}
