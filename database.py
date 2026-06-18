@@ -118,7 +118,8 @@ def obtener_historial(negocio: str):
         ]
     except Exception as e:
         return []
-    def registrar_cliente(email: str, nombre: str = "", plan: str = "basico"):
+
+def registrar_cliente(email: str, nombre: str = "", plan: str = "basico"):
     try:
         conn = get_conn()
         cur = conn.cursor()
