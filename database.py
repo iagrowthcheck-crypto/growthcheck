@@ -11,7 +11,7 @@ def get_conn():
         db_url = db_url.replace("postgres://", "postgresql://", 1)
     return psycopg2.connect(db_url, sslmode="require")
 
-def crear_tabla():
+def crear_tablas():
     try:
         conn = get_conn()
         cur = conn.cursor()
@@ -33,13 +33,37 @@ def crear_tabla():
                 fortalezas JSONB
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                nombre TEXT,
+                plan TEXT DEFAULT 'basico',
+                tokens_disponibles INTEGER DEFAULT 100,
+                tokens_usados INTEGER DEFAULT 0,
+                fecha_registro TIMESTAMP DEFAULT NOW(),
+                fecha_renovacion TIMESTAMP DEFAULT NOW() + INTERVAL '1 month',
+                activo BOOLEAN DEFAULT TRUE
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS uso_tokens (
+                id SERIAL PRIMARY KEY,
+                cliente_id INTEGER REFERENCES clientes(id),
+                tipo TEXT NOT NULL,
+                descripcion TEXT,
+                tokens_consumidos INTEGER DEFAULT 1,
+                fecha TIMESTAMP DEFAULT NOW()
+            )
+        """)
         conn.commit()
         cur.close()
         conn.close()
+        print("Tablas creadas correctamente")
     except Exception as e:
-        print(f"Error creando tabla: {e}")
+        print(f"Error creando tablas: {e}")
 
-crear_tabla()
+crear_tablas()
 
 def guardar_analisis(negocio: str, datos_negocio: dict, datos_analisis: dict):
     try:
@@ -94,3 +118,67 @@ def obtener_historial(negocio: str):
         ]
     except Exception as e:
         return []
+    def registrar_cliente(email: str, nombre: str = "", plan: str = "basico"):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO clientes (email, nombre, plan, tokens_disponibles)
+            VALUES (%s, %s, %s, 100)
+            ON CONFLICT (email) DO NOTHING
+            RETURNING id, tokens_disponibles
+        """, (email, nombre, plan))
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        if result:
+            return {"ok": True, "cliente_id": result[0], "tokens": result[1]}
+        return {"ok": False, "error": "Email ya registrado"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def verificar_tokens(email: str):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT id, tokens_disponibles, tokens_usados, plan FROM clientes WHERE email = %s AND activo = TRUE", (email,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not row:
+            return {"ok": False, "error": "Cliente no encontrado"}
+        return {"ok": True, "cliente_id": row[0], "tokens_disponibles": row[1], "tokens_usados": row[2], "plan": row[3]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def consumir_token(email: str, tipo: str, descripcion: str = ""):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT id, tokens_disponibles FROM clientes WHERE email = %s AND activo = TRUE", (email,))
+        row = cur.fetchone()
+        if not row or row[1] < 1:
+            conn.close()
+            return {"ok": False, "error": "Sin tokens disponibles"}
+        cliente_id = row[0]
+        cur.execute("UPDATE clientes SET tokens_disponibles = tokens_disponibles - 1, tokens_usados = tokens_usados + 1 WHERE id = %s", (cliente_id,))
+        cur.execute("INSERT INTO uso_tokens (cliente_id, tipo, descripcion) VALUES (%s, %s, %s)", (cliente_id, tipo, descripcion))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"ok": True, "tokens_restantes": row[1] - 1}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def recargar_tokens(email: str, cantidad: int = 100):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("UPDATE clientes SET tokens_disponibles = tokens_disponibles + %s WHERE email = %s", (cantidad, email))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
