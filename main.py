@@ -1,13 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from maps import buscar_negocio, obtener_resenas
 from analisis import analizar_resenas
 from infra import verificar_dominio, verificar_ssl, verificar_velocidad
-from database import guardar_analisis, obtener_historial
+from database import guardar_analisis, obtener_historial, registrar_cliente, verificar_tokens, consumir_token, recargar_tokens
 import anthropic
 import os
 import json
+from typing import Optional
 
 load_dotenv()
 
@@ -27,13 +28,21 @@ def get_negocio(nombre: str):
     return buscar_negocio(nombre)
 
 @app.get("/analisis/{nombre}")
-def get_analisis(nombre: str):
+def get_analisis(nombre: str, email: Optional[str] = None):
+    if email:
+        tokens = verificar_tokens(email)
+        if not tokens["ok"]:
+            raise HTTPException(status_code=403, detail="Cliente no encontrado")
+        if tokens["tokens_disponibles"] < 1:
+            raise HTTPException(status_code=402, detail="Sin tokens disponibles")
     negocio = buscar_negocio(nombre)
     if "error" in negocio:
         return negocio
     resenas = obtener_resenas(negocio["place_id"])
     analisis = analizar_resenas(nombre, resenas["resenas"])
     guardar_analisis(nombre, negocio, analisis)
+    if email:
+        consumir_token(email, "analisis", f"Análisis de {nombre}")
     return {"negocio": negocio, "analisis": analisis}
 
 @app.get("/historial/{nombre}")
@@ -62,58 +71,18 @@ def get_ssl(dominio: str):
 def get_velocidad(url: str):
     return verificar_velocidad(url)
 
-@app.get("/score/{nombre}")
-def get_score(nombre: str):
-    try:
-        negocio = buscar_negocio(nombre)
-        if "error" in negocio:
-            return negocio
-        resenas = obtener_resenas(negocio["place_id"])
-        analisis = analizar_resenas(nombre, resenas["resenas"])
-        ssl = verificar_ssl(nombre)
-        dominio = verificar_dominio(nombre)
-        rating = negocio.get("rating", 0)
-        score_reputacion = min(100, int(rating * 20))
-        positivo = analisis.get("porcentaje_positivo", 50)
-        score_atencion = positivo
-        ssl_ok = ssl.get("ssl_valido", False)
-        dias_ssl = ssl.get("dias_restantes", 0) or 0
-        score_digital = 100 if ssl_ok and dias_ssl > 30 else 50 if ssl_ok else 20
-        score_general = int((score_reputacion + score_atencion + score_digital) / 3)
-        historial = obtener_historial(nombre)
-        score_anterior = None
-        if len(historial) > 1:
-            h = historial[1]
-            pos_ant = h.get("porcentaje_positivo", 50)
-            score_anterior = int((score_reputacion + pos_ant + score_digital) / 3)
-        return {
-            "scores": {
-                "reputacion": score_reputacion,
-                "digital": score_digital,
-                "atencion_cliente": score_atencion,
-                "legal": 95,
-                "redes_sociales": 70,
-                "general": score_general
-            },
-            "evolucion": {
-                "anterior": score_anterior,
-                "actual": score_general,
-                "diferencia": score_general - score_anterior if score_anterior else None
-            },
-            "alertas": {
-                "ssl_vence_pronto": dias_ssl < 30 if ssl_ok else True,
-                "dominio_vence_pronto": dominio.get("alerta", False),
-                "alerta_critica_reputacion": analisis.get("alerta_critica", False)
-            }
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
 @app.post("/consultor")
 def consultor_virtual(data: dict):
     try:
         problema = data.get("problema", "")
         negocio = data.get("negocio", "mi negocio")
+        email = data.get("email", None)
+        if email:
+            tokens = verificar_tokens(email)
+            if not tokens["ok"]:
+                raise HTTPException(status_code=403, detail="Cliente no encontrado")
+            if tokens["tokens_disponibles"] < 1:
+                raise HTTPException(status_code=402, detail="Sin tokens disponibles")
         mensaje = client.messages.create(
             model="claude-sonnet-4-5",
             max_tokens=1500,
@@ -149,6 +118,49 @@ Responde UNICAMENTE con JSON valido:
             resultado = resultado.split("```")[1]
             if resultado.startswith("json"):
                 resultado = resultado[4:]
-        return json.loads(resultado.strip())
+        resp = json.loads(resultado.strip())
+        if email:
+            consumir_token(email, "consultor", f"Consulta sobre: {problema[:50]}")
+            tokens_actualizados = verificar_tokens(email)
+            resp["tokens_restantes"] = tokens_actualizados.get("tokens_disponibles", 0)
+        return resp
+    except HTTPException:
+        raise
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/cliente/registrar")
+def registrar(data: dict):
+    email = data.get("email")
+    nombre = data.get("nombre", "")
+    plan = data.get("plan", "basico")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email requerido")
+    return registrar_cliente(email, nombre, plan)
+
+@app.get("/cliente/tokens")
+def get_tokens(email: str):
+    return verificar_tokens(email)
+
+@app.post("/cliente/recargar")
+def recargar(data: dict):
+    email = data.get("email")
+    cantidad = data.get("cantidad", 100)
+    if not email:
+        raise HTTPException(status_code=400, detail="Email requerido")
+    return recargar_tokens(email, cantidad)
+
+@app.post("/webhook/wix")
+def webhook_wix(data: dict):
+    try:
+        email = data.get("email") or data.get("buyerInfo", {}).get("email")
+        nombre = data.get("nombre") or data.get("buyerInfo", {}).get("firstName", "")
+        plan = data.get("plan", "basico")
+        if email:
+            resultado = registrar_cliente(email, nombre, plan)
+            if not resultado["ok"]:
+                recargar_tokens(email, 100)
+            return {"ok": True, "mensaje": "Cliente registrado y tokens asignados"}
+        return {"ok": False, "error": "Email no encontrado en webhook"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
