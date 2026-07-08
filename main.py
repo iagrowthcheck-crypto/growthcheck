@@ -24,18 +24,18 @@ def root():
     return {"ok": True}
 
 @app.get("/negocio/{nombre}")
-def get_negocio(nombre: str):
-    return buscar_negocio(nombre)
+def get_negocio(nombre: str, maps_url: Optional[str] = None):
+    return buscar_negocio(nombre, maps_url=maps_url)
 
 @app.get("/analisis/{nombre}")
-def get_analisis(nombre: str, email: Optional[str] = None):
+def get_analisis(nombre: str, email: Optional[str] = None, maps_url: Optional[str] = None):
     if email:
         tokens = verificar_tokens(email)
         if not tokens["ok"]:
             raise HTTPException(status_code=403, detail="Cliente no encontrado")
         if tokens["tokens_disponibles"] < 1:
             raise HTTPException(status_code=402, detail="Sin tokens disponibles")
-    negocio = buscar_negocio(nombre)
+    negocio = buscar_negocio(nombre, maps_url=maps_url)
     if "error" in negocio:
         return negocio
     resenas = obtener_resenas(negocio["place_id"])
