@@ -1,29 +1,35 @@
 import requests
 import os
 import re
+import urllib.parse
 from dotenv import load_dotenv
 
 load_dotenv()
 
 API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
-def extraer_place_id_de_url(maps_url: str):
-    """Sigue el link (incluso si es un link corto tipo share.google) y busca el place_id en la URL final."""
+def extraer_query_de_url(maps_url: str):
+    """Sigue el link y extrae place_id, cid, o texto de busqueda (q) segun lo que tenga la URL final."""
     try:
         response = requests.get(maps_url, allow_redirects=True, timeout=10)
         url_final = response.url
 
-        match = re.search(r"place_id=([\w-]+)", url_final)
-        if match:
-            return match.group(1)
+        match_place = re.search(r"place_id=([\w-]+)", url_final)
+        if match_place:
+            return ("place_id", match_place.group(1))
 
         match_cid = re.search(r"[?&]cid=(\d+)", url_final)
         if match_cid:
-            return buscar_place_id_por_cid(match_cid.group(1))
+            return ("cid", match_cid.group(1))
 
-        return None
+        parsed = urllib.parse.urlparse(url_final)
+        qs = urllib.parse.parse_qs(parsed.query)
+        if "q" in qs:
+            return ("query", qs["q"][0])
+
+        return (None, None)
     except Exception:
-        return None
+        return (None, None)
 
 def buscar_place_id_por_cid(cid: str):
     url = "https://maps.googleapis.com/maps/api/place/details/json"
@@ -52,17 +58,10 @@ def obtener_negocio_por_place_id(place_id: str):
         "place_id": result.get("place_id")
     }
 
-def buscar_negocio(nombre: str, ubicacion: str = "El Salvador", maps_url: str = None):
-    if maps_url:
-        place_id = extraer_place_id_de_url(maps_url)
-        if place_id:
-            resultado = obtener_negocio_por_place_id(place_id)
-            if "error" not in resultado:
-                return resultado
-
+def _buscar_por_texto(texto: str):
     url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
     params = {
-        "input": f"{nombre} {ubicacion}",
+        "input": texto,
         "inputtype": "textquery",
         "fields": "place_id,name,rating,user_ratings_total,formatted_address",
         "key": API_KEY
@@ -79,6 +78,26 @@ def buscar_negocio(nombre: str, ubicacion: str = "El Salvador", maps_url: str = 
             "place_id": lugar.get("place_id")
         }
     return {"error": "Negocio no encontrado"}
+
+def buscar_negocio(nombre: str, ubicacion: str = "El Salvador", maps_url: str = None):
+    if maps_url:
+        tipo, valor = extraer_query_de_url(maps_url)
+        if tipo == "place_id":
+            resultado = obtener_negocio_por_place_id(valor)
+            if "error" not in resultado:
+                return resultado
+        elif tipo == "cid":
+            place_id = buscar_place_id_por_cid(valor)
+            if place_id:
+                resultado = obtener_negocio_por_place_id(place_id)
+                if "error" not in resultado:
+                    return resultado
+        elif tipo == "query":
+            resultado = _buscar_por_texto(valor)
+            if "error" not in resultado:
+                return resultado
+
+    return _buscar_por_texto(f"{nombre} {ubicacion}")
 
 def obtener_resenas(place_id: str):
     url = "https://maps.googleapis.com/maps/api/place/details/json"
