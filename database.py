@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+TOKENS_SUSCRIPCION_MENSUAL = int(os.getenv("TOKENS_SUSCRIPCION_MENSUAL", "30"))
+
 def get_conn():
     db_url = os.getenv("DATABASE_URL", "")
     if db_url.startswith("postgres://"):
@@ -169,6 +171,37 @@ def consumir_token(email: str, tipo: str, descripcion: str = ""):
         cur.close()
         conn.close()
         return {"ok": True, "tokens_restantes": row[1] - 1}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def actualizar_suscripcion(email: str, event: str, nombre: str = ""):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        if event == "activated":
+            cur.execute("""
+                INSERT INTO clientes (email, nombre, plan, tokens_disponibles, activo)
+                VALUES (%s, %s, 'suscripcion', %s, TRUE)
+                ON CONFLICT (email) DO UPDATE
+                SET tokens_disponibles = EXCLUDED.tokens_disponibles, activo = TRUE, plan = 'suscripcion'
+                RETURNING id, tokens_disponibles, activo
+            """, (email, nombre, TOKENS_SUSCRIPCION_MENSUAL))
+        elif event in ("cancelled", "payment_failed"):
+            cur.execute("""
+                UPDATE clientes SET activo = FALSE WHERE email = %s
+                RETURNING id, tokens_disponibles, activo
+            """, (email,))
+        else:
+            cur.close()
+            conn.close()
+            return {"ok": False, "error": "Evento no soportado"}
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        if not result:
+            return {"ok": False, "error": "Cliente no encontrado"}
+        return {"ok": True, "cliente_id": result[0], "tokens_disponibles": result[1], "activo": result[2]}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

@@ -4,13 +4,20 @@ from dotenv import load_dotenv
 from maps import buscar_negocio, obtener_resenas
 from analisis import analizar_resenas
 from infra import verificar_dominio, verificar_ssl, verificar_velocidad
-from database import guardar_analisis, obtener_historial, registrar_cliente, verificar_tokens, consumir_token, recargar_tokens
+from database import guardar_analisis, obtener_historial, registrar_cliente, verificar_tokens, consumir_token, recargar_tokens, actualizar_suscripcion
 import anthropic
+import hmac
 import os
 import json
 from typing import Optional
 
 load_dotenv()
+
+def verificar_secreto(secret_recibido) -> bool:
+    secreto_esperado = os.environ.get("WEBHOOK_SECRET", "")
+    if not secreto_esperado or not isinstance(secret_recibido, str) or not secret_recibido:
+        return False
+    return hmac.compare_digest(secret_recibido, secreto_esperado)
 
 raw_key = os.environ.get("ANTHROPIC_API_KEY", "")
 clean_key = raw_key.replace("\n", "").replace("\r", "").strip()
@@ -131,6 +138,8 @@ Responde UNICAMENTE con JSON valido:
 
 @app.post("/cliente/registrar")
 def registrar(data: dict):
+    if not verificar_secreto(data.get("secret")):
+        raise HTTPException(status_code=401, detail="No autorizado")
     email = data.get("email")
     nombre = data.get("nombre", "")
     plan = data.get("plan", "basico")
@@ -144,14 +153,31 @@ def get_tokens(email: str):
 
 @app.post("/cliente/recargar")
 def recargar(data: dict):
+    if not verificar_secreto(data.get("secret")):
+        raise HTTPException(status_code=401, detail="No autorizado")
     email = data.get("email")
     cantidad = data.get("cantidad", 100)
     if not email:
         raise HTTPException(status_code=400, detail="Email requerido")
     return recargar_tokens(email, cantidad)
 
+@app.post("/cliente/suscripcion")
+def suscripcion(data: dict):
+    if not verificar_secreto(data.get("secret")):
+        raise HTTPException(status_code=401, detail="No autorizado")
+    email = data.get("email")
+    event = data.get("event")
+    nombre = data.get("nombre", "")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email requerido")
+    if event not in ("activated", "cancelled", "payment_failed"):
+        raise HTTPException(status_code=400, detail="Evento no soportado")
+    return actualizar_suscripcion(email, event, nombre)
+
 @app.post("/webhook/wix")
 def webhook_wix(data: dict):
+    if not verificar_secreto(data.get("secret")):
+        raise HTTPException(status_code=401, detail="No autorizado")
     try:
         email = data.get("email") or data.get("buyerInfo", {}).get("email")
         nombre = data.get("nombre") or data.get("buyerInfo", {}).get("firstName", "")
