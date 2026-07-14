@@ -92,21 +92,24 @@ def obtener_negocio_por_place_id(place_id: str):
 
 
 def _buscar_por_texto(texto: str, lat: str = None, lng: str = None):
-    url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
+    # Text Search maneja mucho mejor nombres con sucursal (ej "TuVet - Colonia Medica")
+    # que Find Place, que asume una coincidencia casi exacta de nombre.
+    texto_limpio = texto.replace("•", " ").replace("  ", " ").strip()
+
+    url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
     params = {
-        "input": texto,
-        "inputtype": "textquery",
-        "fields": "place_id,name,rating,user_ratings_total,formatted_address",
+        "query": texto_limpio,
         "key": API_KEY
     }
     if lat and lng:
-        # Sesga la busqueda a un radio de 2km alrededor del punto exacto del link
-        params["locationbias"] = f"circle:2000@{lat},{lng}"
+        params["location"] = f"{lat},{lng}"
+        params["radius"] = 3000
 
     response = requests.get(url, params=params)
     data = response.json()
-    if data["candidates"]:
-        lugar = data["candidates"][0]
+    resultados = data.get("results", [])
+    if resultados:
+        lugar = resultados[0]
         return {
             "nombre": lugar.get("name"),
             "direccion": lugar.get("formatted_address"),
