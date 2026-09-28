@@ -9,6 +9,7 @@ import anthropic
 import hmac
 import os
 import json
+import requests
 from typing import Optional
 
 load_dotenv()
@@ -77,6 +78,19 @@ def get_ssl(dominio: str):
 @app.get("/velocidad")
 def get_velocidad(url: str):
     return verificar_velocidad(url)
+
+@app.get("/resolver-maps-url")
+def resolver_maps_url(url: str):
+    try:
+        respuesta = requests.head(url, allow_redirects=True, timeout=10)
+        url_final = respuesta.url
+    except Exception:
+        try:
+            respuesta = requests.get(url, allow_redirects=True, timeout=10)
+            url_final = respuesta.url
+        except Exception as e:
+            return {"error": str(e), "url_final": url}
+    return {"url_final": url_final}
 
 @app.post("/consultor")
 def consultor_virtual(data: dict):
