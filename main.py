@@ -81,15 +81,14 @@ def get_velocidad(url: str):
 
 @app.get("/resolver-maps-url")
 def resolver_maps_url(url: str):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     try:
-        respuesta = requests.head(url, allow_redirects=True, timeout=10)
+        respuesta = requests.get(url, allow_redirects=True, timeout=10, headers=headers)
         url_final = respuesta.url
-    except Exception:
-        try:
-            respuesta = requests.get(url, allow_redirects=True, timeout=10)
-            url_final = respuesta.url
-        except Exception as e:
-            return {"error": str(e), "url_final": url}
+    except Exception as e:
+        return {"error": str(e), "url_final": url}
     return {"url_final": url_final}
 
 @app.post("/consultor")
