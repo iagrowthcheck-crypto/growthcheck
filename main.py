@@ -79,17 +79,31 @@ def get_ssl(dominio: str):
 def get_velocidad(url: str):
     return verificar_velocidad(url)
 
+from urllib.parse import urlparse, parse_qs, unquote
+
 @app.get("/resolver-maps-url")
 def resolver_maps_url(url: str):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
-        respuesta = requests.get(url, allow_redirects=True, timeout=10, headers=headers)
-        url_final = respuesta.url
+        actual = url
+        for _ in range(10):
+            resp = requests.get(actual, allow_redirects=False, timeout=10, headers=headers)
+            location = resp.headers.get("location")
+            if not location:
+                return {"url_final": actual}
+            if "google.com/sorry" in location:
+                parsed = urlparse(location)
+                qs = parse_qs(parsed.query)
+                continue_url = qs.get("continue", [None])[0]
+                if continue_url:
+                    return {"url_final": unquote(continue_url)}
+                return {"url_final": actual}
+            actual = location
+        return {"url_final": actual}
     except Exception as e:
         return {"error": str(e), "url_final": url}
-    return {"url_final": url_final}
 
 @app.post("/consultor")
 def consultor_virtual(data: dict):
